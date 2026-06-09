@@ -55,12 +55,12 @@ static HTTPS hosting. Web Serial works fine over HTTPS.
    branch (e.g. `main`) and folder (`/root` or `/docs` — wherever the dashboard
    `index.html` lives).
 4. Save. After a minute GitHub gives you a URL like
-   `https://<user>.github.io/<repo>/`.
+   `https://zaltech-code.github.io/cpp-function-hardware/`.
 5. Share that URL. Students bookmark it. To update, push a new commit — everyone
    gets the latest automatically.
 
 > If you publish the whole project, the dashboard URL will include the path,
-> e.g. `https://<user>.github.io/<repo>/dashboard/`.
+> e.g. `https://zaltech-code.github.io/cpp-function-hardware/dashboard/`.
 
 ### B2. Netlify (drag-and-drop, no git needed)
 1. Go to app.netlify.com -> **Sites** -> drag the `dashboard/` folder onto the
