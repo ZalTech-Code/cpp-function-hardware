@@ -5,6 +5,14 @@ microcontroller (Arduino-compatible). Students don't just read about functions �
 they *see* each call happen on real hardware and watch the board's state live in
 a browser dashboard.
 
+## ▶ Open the live dashboard
+
+**[Click here to open the dashboard](https://zaltech-code.github.io/cpp-function-hardware/dashboard/)**
+
+> Open it in **Chrome or Edge**, then click **Connect**. (You still need your
+> board plugged in with the firmware uploaded — see
+> `docs/student_quickstart.md`.)
+
 ## Why this works
 Every C++ function concept is mapped to a physical, observable action:
 
