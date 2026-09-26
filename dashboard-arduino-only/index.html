@@ -76,6 +76,20 @@
         <span class="lg lg-exit">← exit</span></span>
       </p>
 
+      <!-- Real-time trace controls: slow the BOARD to a watchable speed -->
+      <div class="trace-bar">
+        <button id="trace-btn" class="ctrl trace-toggle" disabled>▶ Start real-time trace</button>
+        <label for="trace-pace" class="step-mode-label">Execution speed:</label>
+        <input type="range" id="trace-pace" min="50" max="2000" step="50" value="400" />
+        <span id="trace-pace-val" class="queue-info">400 ms/loop</span>
+      </div>
+      <p class="hint trace-hint">
+        Trace mode slows the <em>board itself</em> to a speed you can follow and
+        reports every function call <strong>as it really happens</strong> — this
+        is real execution, not a replay. (The board can't stream all 10,000
+        loops/sec over USB, so we slow the board instead.)
+      </p>
+
       <!-- Active-function breadcrumb + diagram -->
       <div class="flow-stage">
         <div id="flow-diagram" class="flow-diagram">

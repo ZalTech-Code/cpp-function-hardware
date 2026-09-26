@@ -40,6 +40,9 @@ const el = {
   flowPlayBtn:    document.getElementById("flow-play-btn"),
   flowSpeed:      document.getElementById("flow-speed"),
   flowQueueInfo:  document.getElementById("flow-queue-info"),
+  traceBtn:       document.getElementById("trace-btn"),
+  tracePace:      document.getElementById("trace-pace"),
+  tracePaceVal:   document.getElementById("trace-pace-val"),
   log:            document.getElementById("log"),
   clearLogBtn:    document.getElementById("clear-log-btn"),
 };
@@ -75,11 +78,16 @@ function setConnected(connected) {
   el.statusText.textContent = connected ? "Connected" : "Disconnected";
   el.connectBtn.disabled = connected;
   el.disconnectBtn.disabled = !connected;
-  [el.ledOnBtn, el.ledOffBtn, el.blinkBtn, el.intervalBtn].forEach(
+  [el.ledOnBtn, el.ledOffBtn, el.blinkBtn, el.intervalBtn, el.traceBtn].forEach(
     (b) => (b.disabled = !connected)
   );
   el.flowClearBtn.disabled = !connected || !el.flowFeed.querySelector(".flow-row");
-  if (!connected) resetFlowStage();
+  if (!connected) {
+    resetFlowStage();
+    traceOn = false;
+    el.traceBtn.textContent = "▶ Start real-time trace";
+    el.traceBtn.classList.remove("tracing");
+  }
 }
 
 // ---- Parse "PREFIX;k=v;k=v" lines into a key/value object ----
@@ -177,6 +185,12 @@ function applyFlowEvent(d) {
   let kind, text;
 
   switch (d.evt) {
+    case "loop":
+      // Trace mode: the board is starting one real loop() pass.
+      kind = "loop";
+      text = `loop() — iteration ${d.iter !== undefined ? d.iter : "?"}`;
+      setFlowActive("loop", `loop() — iteration ${d.iter !== undefined ? d.iter : "?"}`);
+      break;
     case "enter":
       kind = "enter";
       text = `loop() → ${d.fn}(${flowArg(d)})`;
@@ -357,6 +371,19 @@ async function sendCommand(cmd) {
   log("sent: " + cmd);
 }
 
+// ---- Real-time trace (slows the BOARD, not the dashboard) ----
+let traceOn = false;
+
+async function setTrace(on) {
+  traceOn = on;
+  el.traceBtn.textContent = on ? "⏸ Stop trace" : "▶ Start real-time trace";
+  el.traceBtn.classList.toggle("tracing", on);
+  await sendCommand("CMD;trace=" + (on ? "on" : "off"));
+  log(on
+    ? `Trace ON: board running at ${el.tracePace.value} ms/loop, reporting every call in real time.`
+    : "Trace OFF: board back to full speed.");
+}
+
 // ---- Connect / disconnect ----
 async function connect() {
   if (!("serial" in navigator)) {
@@ -432,6 +459,17 @@ el.flowPlayBtn.addEventListener("click", toggleFlowPlay);
 el.flowSpeed.addEventListener("change", () => {
   // Restart the timer at the new speed if we're mid-play.
   if (flowPlaying) { stopFlowPlay(); toggleFlowPlay(); }
+});
+
+// ---- Real-time trace controls ----
+el.traceBtn.addEventListener("click", () => setTrace(!traceOn));
+el.tracePace.addEventListener("input", () => {
+  el.tracePaceVal.textContent = el.tracePace.value + " ms/loop";
+});
+el.tracePace.addEventListener("change", () => {
+  // Send the new pace to the board (applies live, even mid-trace).
+  el.tracePaceVal.textContent = el.tracePace.value + " ms/loop";
+  sendCommand("CMD;pace=" + el.tracePace.value);
 });
 
 // Tidy up if the page closes while connected.

@@ -141,6 +141,48 @@ input[type="number"], select {
 input[type="number"] { width: 80px; }
 label { color: var(--muted); font-size: 0.9rem; }
 
+/* Range slider (trace pace) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 180px;
+  height: 6px;
+  background: var(--panel-2);
+  border-radius: 3px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+/* Real-time trace bar */
+.trace-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.trace-toggle { min-width: 190px; }
+.trace-toggle.tracing {
+  background: var(--green);
+  color: #04240a;
+  box-shadow: 0 0 12px rgba(63, 185, 80, 0.5);
+}
+.trace-hint { margin-top: 0; margin-bottom: 14px; }
+
 .queue-info {
   font-size: 0.75rem;
   color: var(--accent);
@@ -282,6 +324,8 @@ footer {
 }
 
 .flow-text { color: var(--text); }
+.flow-loop .flow-text { color: #d2a8ff; font-weight: 600; }
+.flow-loop .flow-text::before { content: "⟳ "; }
 .flow-enter .flow-text { color: var(--accent); }
 .flow-enter .flow-text::before { content: "→ "; }
 .flow-call .flow-text { color: #ffd54f; }
