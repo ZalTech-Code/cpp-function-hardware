@@ -169,3 +169,155 @@ footer {
   font-size: 0.8rem;
 }
 footer code { color: var(--accent); }
+
+/* ---- Variable & call-stack watch ---- */
+.watch-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.watch-section h2 { font-size: 1.05rem; margin-bottom: 8px; }
+
+.watch-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+@media (max-width: 640px) {
+  .watch-grid { grid-template-columns: 1fr; }
+}
+
+.watch-col-head {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.watch-mem { text-transform: none; letter-spacing: 0; color: var(--accent); }
+
+.watch-stack {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  min-height: 160px;
+}
+.watch-empty { color: var(--muted); font-size: 0.85rem; }
+
+.watch-frame {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.watch-frame.returning { border-left-color: var(--green); opacity: 0.7; }
+
+.watch-fn-name {
+  font-family: "SF Mono", Menlo, monospace;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.watch-depth {
+  float: right;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.watch-var {
+  font-family: "SF Mono", Menlo, monospace;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.watch-var .vname { color: var(--text); }
+.watch-var .vval  { color: var(--accent); }
+.watch-var.is-arg .vname::before { content: "param "; color: var(--muted); }
+.watch-var.is-return {
+  color: var(--muted);
+}
+.watch-var.is-return .vval {
+  color: var(--green);
+}
+
+.watch-result {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+  font-family: "SF Mono", Menlo, monospace;
+  font-size: 1.3rem;
+  color: var(--green);
+  text-align: center;
+}
+
+/* Sensor history graph */
+.sensor-graph {
+  display: block;
+  width: 100%;
+  height: 50px;
+  margin-top: 6px;
+  background: transparent;
+}
+
+/* Step-play controls */
+.queue-info {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.step-mode-label {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+.step-mode-label input {
+  margin-right: 4px;
+}
+
+/* ---- Live function flow ---- */
+.flow-feed {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  height: 220px;
+  overflow-y: auto;
+  font-family: "SF Mono", Menlo, monospace;
+  font-size: 0.8rem;
+}
+.flow-empty { color: var(--muted); font-size: 0.85rem; }
+
+.flow-row {
+  display: flex;
+  gap: 10px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flow-row:nth-child(odd) { background: rgba(255, 255, 255, 0.02); }
+
+.flow-time {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  padding-top: 1px;
+}
+
+.flow-text { color: var(--text); }
+.flow-enter .flow-text { color: var(--accent); }
+.flow-enter .flow-text::before { content: "→ "; }
+.flow-call .flow-text { color: #ffd54f; }
+.flow-call .flow-text::before { content: "↳ "; }
+.flow-exit .flow-text { color: var(--green); }
+.flow-exit .flow-text::before { content: "← "; }
+.flow-other .flow-text { color: var(--muted); }
