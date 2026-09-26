@@ -272,17 +272,30 @@ function resetFlowStage() {
 }
 
 // Highlight the currently-running function in the code reference panel.
+// NOTE: we deliberately do NOT auto-scroll here. FLOW events fire many times
+// per second while tracing, and scrolling the code panel on every event makes
+// the page fight the user's own scroll and can freeze it ("stuck at the code").
+let currentCodeFn = null;
 function highlightCodeFn(fn) {
   if (!el.codeContent) return;
+  if (fn === currentCodeFn) return;      // no change — don't touch the DOM
+  currentCodeFn = fn;
   el.codeContent.querySelectorAll(".code-fn.running").forEach((n) =>
     n.classList.remove("running")
   );
   if (!fn) return;
   const span = el.codeContent.querySelector(`.code-fn[data-fn="${fn}"]`);
-  if (span) {
-    span.classList.add("running");
-    // Keep the highlighted function in view while tracing (gentle scroll).
-    span.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  if (span) span.classList.add("running");
+}
+
+// Manually jump the code panel to a function (used by the "view code" affordance).
+function scrollCodeTo(fn) {
+  if (!el.codeContent) return;
+  const span = el.codeContent.querySelector(`.code-fn[data-fn="${fn}"]`);
+  if (span && typeof span.scrollIntoView === "function") {
+    try {
+      span.scrollIntoView({ block: "center", behavior: "smooth" });
+    } catch (_) { /* older browsers: ignore */ }
   }
 }
 
