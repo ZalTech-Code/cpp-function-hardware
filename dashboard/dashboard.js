@@ -22,6 +22,7 @@ const el = {
   blinksValue:   document.getElementById("blinks-value"),
   sensorValue:   document.getElementById("sensor-value"),
   sensorBar:     document.getElementById("sensor-bar"),
+  sensorGraph:   document.getElementById("sensor-graph"),
   ledOnBtn:      document.getElementById("led-on-btn"),
   ledOffBtn:     document.getElementById("led-off-btn"),
   blinkCount:    document.getElementById("blink-count"),
@@ -29,6 +30,21 @@ const el = {
   boardSelect:   document.getElementById("board-select"),
   log:           document.getElementById("log"),
   clearLogBtn:   document.getElementById("clear-log-btn"),
+  watchFn:       document.getElementById("watch-fn"),
+  watchN:        document.getElementById("watch-n"),
+  watchRunBtn:   document.getElementById("watch-run-btn"),
+  watchClearBtn: document.getElementById("watch-clear-btn"),
+  watchExportBtn: document.getElementById("watch-export-btn"),
+  watchStepBtn:  document.getElementById("watch-step-btn"),
+  watchPlayBtn:  document.getElementById("watch-play-btn"),
+  watchStepMode: document.getElementById("watch-step-mode"),
+  watchQueueInfo: document.getElementById("watch-queue-info"),
+  watchStack:    document.getElementById("watch-stack"),
+  watchResult:   document.getElementById("watch-result"),
+  watchMem:      document.getElementById("watch-mem"),
+  flowFeed:      document.getElementById("flow-feed"),
+  flowPause:     document.getElementById("flow-pause"),
+  flowClearBtn:  document.getElementById("flow-clear-btn"),
 };
 
 // ---- Board profiles (must match examples/board_config.h) ----
@@ -54,6 +70,13 @@ function log(msg) {
   el.log.scrollTop = el.log.scrollHeight;
 }
 
+// Escape HTML entities to prevent XSS when rendering untrusted data
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // ---- UI: reflect connection status ----
 function setConnected(connected) {
   el.statusDot.classList.toggle("on", connected);
@@ -61,7 +84,8 @@ function setConnected(connected) {
   el.statusText.textContent = connected ? "Connected" : "Disconnected";
   el.connectBtn.disabled = connected;
   el.disconnectBtn.disabled = !connected;
-  [el.ledOnBtn, el.ledOffBtn, el.blinkBtn].forEach(b => (b.disabled = !connected));
+  [el.ledOnBtn, el.ledOffBtn, el.blinkBtn, el.watchRunBtn, el.watchClearBtn, el.watchStepBtn, el.watchPlayBtn, el.watchExportBtn].forEach(b => (b.disabled = !connected));
+  el.flowClearBtn.disabled = !connected || !el.flowFeed.querySelector(".flow-row");
 }
 
 // ---- Parse one STATUS line into a key/value object ----
@@ -98,6 +122,12 @@ function updateUI(data) {
     // Scale against the selected board's ADC max (4095 ESP32, 1023 Uno/micro:bit).
     const pct = Math.max(0, Math.min(100, (v / board.adcMax) * 100));
     el.sensorBar.style.width = pct + "%";
+    // Push to history and redraw graph
+    sensorHistory.values.push(v);
+    if (sensorHistory.values.length > sensorHistory.maxPoints) {
+      sensorHistory.values.shift();
+    }
+    drawSensorGraph();
   }
 }
 
@@ -112,12 +142,319 @@ function handleLine(line) {
     return;
   }
 
+  // Live function-flow events: "FLOW;evt=...;fn=...;..."
+  if (line.startsWith("FLOW;")) {
+    handleFlow(line);
+    return;
+  }
+
+  // Variable & call-stack watch events: "WATCH;evt=...;..."
+  if (line.startsWith("WATCH;")) {
+    handleWatch(line);
+    return;
+  }
+
   const data = parseStatus(line);
   if (data) {
     updateUI(data);
   } else {
     log("board: " + line); // non-status output (e.g. debug prints)
   }
+}
+
+// ---- Variable & call-stack watch state ----
+// Each frame: { fn, depth, vars: [{name, val, isArg}] }
+let watchStack = [];
+
+// Step-play mode for WATCH events
+let watchQueue = [];
+let watchStepIndex = 0;
+let watchPlaying = false;
+let watchPlayInterval = null;
+const WATCH_STEP_INTERVAL_MS = 200;
+
+// Watch log for export
+let watchLog = [];
+
+// Sensor history for live graph
+let sensorHistory = { values: [], maxPoints: 60 };
+
+// Parse a "WATCH;k=v;k=v" line into an object.
+function parseKv(line) {
+  const data = {};
+  for (const part of line.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq > 0) data[part.slice(0, eq)] = part.slice(eq + 1);
+  }
+  return data;
+}
+
+// Handle one WATCH event and update the call-stack view.
+function handleWatch(line) {
+  const d = parseKv(line);
+  watchLog.push({ time: Date.now(), line: line });
+  if (el.watchStepMode.checked) {
+    watchQueue.push(d);
+    updateStepPlayButtons();
+    return;
+  }
+  applyWatchEvent(d);
+}
+
+// Apply a watch event to the UI (the original logic, now extracted).
+function applyWatchEvent(d) {
+  switch (d.evt) {
+    case "run":
+      watchStack = [];
+      el.watchResult.textContent = "running " + d.name + "(" + d.n + ")...";
+      renderWatch();
+      break;
+    case "enter":
+      watchStack.push({ fn: d.fn, depth: Number(d.depth), vars: [], returning: false });
+      renderWatch();
+      break;
+    case "arg":
+      addWatchVar(d.fn, d.name, d.val, true);
+      break;
+    case "var":
+      addWatchVar(d.fn, d.name, d.val, false);
+      break;
+    case "exit":
+      if (watchStack.length) {
+        const frame = watchStack[watchStack.length - 1];
+        frame.returning = true;
+        if (d.ret !== undefined) frame.returnValue = d.ret;
+      }
+      renderWatch();
+      watchStack.pop();
+      renderWatch();
+      break;
+    case "mem":
+      el.watchMem.textContent = "free RAM: " + d.free + " B";
+      break;
+    case "result":
+      el.watchResult.textContent = d.name + " = " + d.val;
+      break;
+    case "error":
+      el.watchResult.textContent = "error: " + (d.msg || "unknown");
+      break;
+    default:
+      log("watch: " + line);
+  }
+}
+
+// Add/update a variable on the matching (top-most) frame for fn.
+function addWatchVar(fn, name, val, isArg) {
+  for (let i = watchStack.length - 1; i >= 0; i--) {
+    if (watchStack[i].fn === fn) {
+      const existing = watchStack[i].vars.find(v => v.name === name);
+      if (existing) existing.val = val;
+      else watchStack[i].vars.push({ name, val, isArg });
+      renderWatch();
+      return;
+    }
+  }
+}
+
+// Draw the call stack (deepest frame on top).
+function renderWatch() {
+  if (!watchStack.length) {
+    el.watchStack.innerHTML =
+      '<div class="watch-empty">Stack is empty. Click "Run with watch".</div>';
+    return;
+  }
+  let html = "";
+  // Show deepest (last) frame first so the stack reads top-down.
+  for (let i = watchStack.length - 1; i >= 0; i--) {
+    const f = watchStack[i];
+    html += '<div class="watch-frame' + (f.returning ? " returning" : "") + '">';
+    html += '<span class="watch-fn-name">' + escapeHtml(f.fn) + "()</span>";
+    html += '<span class="watch-depth">depth ' + f.depth + "</span>";
+    for (const v of f.vars) {
+      html += '<div class="watch-var' + (v.isArg ? " is-arg" : "") + '">' +
+              '<span class="vname">' + escapeHtml(v.name) + '</span> = ' +
+              '<span class="vval">' + escapeHtml(v.val) + "</span></div>";
+    }
+    if (f.returnValue !== undefined) {
+      html += '<div class="watch-var is-return">return = <span class="vval">' + escapeHtml(f.returnValue) + '</span></div>';
+    }
+    html += "</div>";
+  }
+  el.watchStack.innerHTML = html;
+}
+
+// ---- Step-play control for WATCH events ----
+function updateStepPlayButtons() {
+  const hasUnapplied = watchQueue.length > watchStepIndex;
+  el.watchStepBtn.disabled = !hasUnapplied || watchPlaying;
+  el.watchPlayBtn.disabled = !hasUnapplied;
+  el.watchPlayBtn.textContent = watchPlaying ? "Pause" : "Play";
+  const info = el.watchQueueInfo;
+  if (watchQueue.length > 0) {
+    info.textContent = `queued: ${watchQueue.length - watchStepIndex} of ${watchQueue.length}`;
+  } else {
+    info.textContent = "";
+  }
+}
+
+function exitStepMode() {
+  while (watchStepIndex < watchQueue.length) {
+    applyWatchEvent(watchQueue[watchStepIndex]);
+    watchStepIndex++;
+  }
+  watchQueue = [];
+  watchStepIndex = 0;
+  watchPlaying = false;
+  if (watchPlayInterval) {
+    clearInterval(watchPlayInterval);
+    watchPlayInterval = null;
+  }
+  updateStepPlayButtons();
+}
+
+function toggleWatchPlay() {
+  if (!watchPlaying) {
+    watchPlaying = true;
+    watchPlayInterval = setInterval(() => {
+      if (watchStepIndex < watchQueue.length) {
+        applyWatchEvent(watchQueue[watchStepIndex]);
+        watchStepIndex++;
+        updateStepPlayButtons();
+      } else {
+        clearInterval(watchPlayInterval);
+        watchPlaying = false;
+        watchPlayInterval = null;
+        updateStepPlayButtons();
+      }
+    }, WATCH_STEP_INTERVAL_MS);
+  } else {
+    clearInterval(watchPlayInterval);
+    watchPlayInterval = null;
+    watchPlaying = false;
+  }
+  updateStepPlayButtons();
+}
+
+// ---- Sensor history graph ----
+// (drawSensorGraph defined below)
+
+// ---- Live function flow ----
+// Renders "loop() -> fn()" transitions streamed as FLOW; lines by the firmware.
+const FLOW_MAX_ROWS = 60;            // keep the DOM small
+let flowNewestOnTop = true;
+
+function parseFlowKv(line) {
+  const data = {};
+  for (const part of line.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq > 0) data[part.slice(0, eq)] = part.slice(eq + 1);
+  }
+  return data;
+}
+
+function handleFlow(line) {
+  const d = parseFlowKv(line);
+  const t = new Date().toLocaleTimeString();
+  let kind, text;
+
+  switch (d.evt) {
+    case "enter":
+      kind = "enter";
+      text = `loop() → ${d.fn}(` +
+             (d.iter !== undefined ? `iter ${d.iter}` :
+              d.cmd !== undefined ? `${d.cmd}` : "") + ")";
+      break;
+    case "call":
+      kind = "call";
+      text = `loop() → ${d.fn}(${d.val !== undefined ? d.val : d.led !== undefined ? "led=" + d.led : ""})`;
+      break;
+    case "exit":
+      kind = "exit";
+      text = `${d.fn}() returned → loop()`;
+      break;
+    default:
+      kind = "other";
+      text = line;
+  }
+  addFlowRow(kind, text, t);
+}
+
+function addFlowRow(kind, text, time) {
+  const feed = el.flowFeed;
+  const empty = feed.querySelector(".flow-empty");
+  if (empty) empty.remove();
+  el.flowClearBtn.disabled = false;
+
+  const row = document.createElement("div");
+  row.className = "flow-row flow-" + kind;
+  row.innerHTML =
+    `<span class="flow-time">${escapeHtml(time)}</span>` +
+    `<span class="flow-text">${escapeHtml(text)}</span>`;
+  if (flowNewestOnTop) feed.prepend(row);
+  else feed.appendChild(row);
+
+  while (feed.children.length > FLOW_MAX_ROWS) {
+    feed.removeChild(flowNewestOnTop ? feed.lastChild : feed.firstChild);
+  }
+}
+
+function clearFlowFeed() {
+  el.flowFeed.innerHTML = '<div class="flow-empty">Waiting for FLOW events from the board&hellip;</div>';
+  el.flowClearBtn.disabled = true;
+}
+
+// ---- Sensor history graph ----
+function drawSensorGraph() {
+  const canvas = el.sensorGraph;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const values = sensorHistory.values;
+  if (values.length < 2) {
+    ctx.fillStyle = "#8b98a5";
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("wait...", w / 2, h / 2);
+    return;
+  }
+  let min = 0;
+  let max = Math.max(...values);
+  if (max === min) max = min + 1;
+  max = max * 1.05; // headroom
+  ctx.beginPath();
+  ctx.strokeStyle = "#4fc3f7";
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < values.length; i++) {
+    const x = (i / (values.length - 1)) * w;
+    const normalized = (values[i] - min) / (max - min);
+    const y = h - (normalized * h);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+// ---- Watch log export ----
+function exportWatchLog() {
+  if (watchLog.length === 0) {
+    alert("No watch log to export.");
+    return;
+  }
+  const data = JSON.stringify({
+    board: board.name,
+    exportedAt: new Date().toISOString(),
+    events: watchLog
+  }, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "watch-log-" + Date.now() + ".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // Match a "BOARD;name=...;adcmax=..." line to a dropdown profile and select it.
@@ -223,6 +560,57 @@ el.blinkBtn.addEventListener("click", () => {
 });
 el.clearLogBtn.addEventListener("click", () => (el.log.textContent = ""));
 
+// ---- Variable & call-stack watch buttons ----
+el.watchRunBtn.addEventListener("click", () => {
+  const fn = el.watchFn.value;
+  const n = parseInt(el.watchN.value, 10) || 0;
+  // If step mode active, reset step queue
+  if (el.watchStepMode.checked) {
+    watchQueue = [];
+    watchStepIndex = 0;
+    watchPlaying = false;
+    if (watchPlayInterval) { clearInterval(watchPlayInterval); watchPlayInterval = null; }
+  }
+  sendCommand("CMD;run=" + fn + ";n=" + n);
+});
+el.watchClearBtn.addEventListener("click", () => {
+  watchStack = [];
+  watchQueue = [];
+  watchStepIndex = 0;
+  watchPlaying = false;
+  if (watchPlayInterval) { clearInterval(watchPlayInterval); watchPlayInterval = null; }
+  el.watchResult.textContent = "—";
+  el.watchMem.textContent = "";
+  renderWatch();
+  updateStepPlayButtons();
+});
+
+// ---- Step-play & export controls ----
+el.watchExportBtn.addEventListener("click", exportWatchLog);
+el.watchStepBtn.addEventListener("click", () => {
+  if (watchStepIndex < watchQueue.length) {
+    applyWatchEvent(watchQueue[watchStepIndex]);
+    watchStepIndex++;
+    updateStepPlayButtons();
+  }
+});
+el.watchPlayBtn.addEventListener("click", toggleWatchPlay);
+el.watchStepMode.addEventListener("change", () => {
+  if (el.watchStepMode.checked) {
+    log("Step mode enabled: watch events will be queued for stepping.");
+  } else {
+    exitStepMode();
+    log("Step mode disabled: remaining events flushed.");
+  }
+});
+
+// ---- Live function flow controls ----
+el.flowPause.addEventListener("change", () => {
+  flowNewestOnTop = false; // paused feed keeps history in reading order
+  log(el.flowPause.checked ? "Flow feed paused." : "Flow feed resumed (newest first).");
+});
+el.flowClearBtn.addEventListener("click", clearFlowFeed);
+
 // ---- Board selector ----
 // Switches the ADC scaling + sensor label to match the selected board.
 function applyBoard(key) {
@@ -240,4 +628,5 @@ window.addEventListener("beforeunload", () => { if (port) disconnect(); });
 // Start disabled until connected.
 setConnected(false);
 applyBoard(el.boardSelect.value);   // initialize label/ADC from the dropdown
+updateStepPlayButtons();            // ensure step/play buttons start disabled
 log("Ready. Pick your board, click Connect, and choose its serial port.");
