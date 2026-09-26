@@ -45,9 +45,10 @@
       </div>
 
       <div class="card">
-        <div class="card-label">Sensor (GPIO 34)</div>
+        <div class="card-label">Sensor</div>
         <div id="sensor-value" class="card-value big">--</div>
         <div class="gauge"><div id="sensor-bar" class="gauge-bar"></div></div>
+        <canvas id="sensor-graph" class="sensor-graph" width="200" height="60"></canvas>
       </div>
     </section>
 
@@ -66,6 +67,62 @@
         <label for="blink-count">doBlink(times):</label>
         <input id="blink-count" type="number" min="1" max="20" value="3" />
         <button id="blink-btn" class="ctrl">Run blink</button>
+      </div>
+    </section>
+
+    <!-- Variable & call-stack watch -->
+    <section class="watch-section">
+      <h2>Variable &amp; Call-Stack Watch</h2>
+      <p class="hint">
+        Run a demo function and watch the call stack grow and shrink, with each
+        function's parameters and locals. Needs the
+        <code>06_serial_watch.ino</code> sketch uploaded.
+      </p>
+      <div class="control-row">
+        <label for="watch-fn">Function:</label>
+        <select id="watch-fn">
+          <option value="factorial">factorial(n) — recursive, returns a value</option>
+          <option value="countdown">countdown(n) — nested, no return</option>
+        </select>
+        <label for="watch-n">n:</label>
+        <input id="watch-n" type="number" min="0" max="12" value="5" />
+        <button id="watch-run-btn" class="ctrl">Run with watch</button>
+        <button id="watch-clear-btn" class="ctrl">Clear</button>
+        <button id="watch-export-btn" class="ctrl">Export Log</button>
+        <button id="watch-step-btn" class="ctrl" disabled>Step</button>
+        <button id="watch-play-btn" class="ctrl" disabled>Play</button>
+        <label class="step-mode-label"><input type="checkbox" id="watch-step-mode"> Step Mode</label>
+        <span id="watch-queue-info" class="queue-info"></span>
+      </div>
+
+      <div class="watch-grid">
+        <div class="watch-col">
+          <div class="watch-col-head">Call stack <span id="watch-mem" class="watch-mem"></span></div>
+          <div id="watch-stack" class="watch-stack">
+            <div class="watch-empty">Stack is empty. Click "Run with watch".</div>
+          </div>
+        </div>
+        <div class="watch-col">
+          <div class="watch-col-head">Result</div>
+          <div id="watch-result" class="watch-result">—</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live function flow -->
+    <section class="watch-section">
+      <h2>Live Function Flow</h2>
+      <p class="hint">
+        Shows how <code>loop()</code> transitions into the functions it calls,
+        in real time. Needs a sketch that emits <code>FLOW;</code> lines
+        (e.g. <code>09_nonblocking_cloud.ino</code>).
+      </p>
+      <div class="control-row">
+        <label class="step-mode-label"><input type="checkbox" id="flow-pause"> Pause feed</label>
+        <button id="flow-clear-btn" class="ctrl" disabled>Clear</button>
+      </div>
+      <div id="flow-feed" class="flow-feed">
+        <div class="flow-empty">Waiting for FLOW events from the board&hellip;</div>
       </div>
     </section>
 
