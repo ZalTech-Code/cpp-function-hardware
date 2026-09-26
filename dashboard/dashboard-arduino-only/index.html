@@ -1,1 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Arduino Only — Uno R3 Function Flow</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Dashboard Arduino Only</h1>
+    <div class="conn">
+      <span class="board-chip">Arduino Uno R3</span>
+      <span id="status-dot" class="dot off"></span>
+      <span id="status-text">Disconnected</span>
+      <button id="connect-btn">Connect</button>
+      <button id="disconnect-btn" disabled>Disconnect</button>
+    </div>
+  </header>
 
+  <main>
+    <!-- Live state cards -->
+    <section class="cards">
+      <div class="card">
+        <div class="card-label">LED (pin 13)</div>
+        <div id="led-indicator" class="led off"></div>
+        <div id="led-value" class="card-value">--</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Uptime</div>
+        <div id="uptime-value" class="card-value big">--</div>
+        <div class="card-sub">seconds</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Total Blinks</div>
+        <div id="blinks-value" class="card-value big">--</div>
+        <div class="card-sub">since boot</div>
+      </div>
+    </section>
+
+    <!-- Controls that send CMD lines to the board -->
+    <section class="controls">
+      <h2>Send a Function Call</h2>
+      <p class="hint">
+        Each button sends a command line to the Uno, which runs a C++ function
+        in <code>09_nonblocking_cloud.ino</code>. Watch the transition appear
+        in the <strong>Live Function Flow</strong> panel below.
+      </p>
+      <div class="control-row">
+        <button id="led-on-btn" class="ctrl">setLed(1) — LED On</button>
+        <button id="led-off-btn" class="ctrl">setLed(0) — LED Off</button>
+      </div>
+      <div class="control-row">
+        <label for="blink-count">startBlink(times):</label>
+        <input id="blink-count" type="number" min="1" max="20" value="3" />
+        <button id="blink-btn" class="ctrl">Run blink</button>
+      </div>
+      <div class="control-row">
+        <label for="interval-ms">setInterval(ms):</label>
+        <input id="interval-ms" type="number" min="50" max="2000" step="50" value="500" />
+        <button id="interval-btn" class="ctrl">Set speed</button>
+        <span class="hint-inline">blink speed, 50 (fast) – 2000 (slow) ms</span>
+      </div>
+    </section>
+
+    <!-- Live function flow: the centerpiece of this dashboard -->
+    <section class="watch-section flow-section">
+      <h2>Live Function Flow</h2>
+      <p class="hint">
+        Watch <code>loop()</code> transition into each function of
+        <code>09_nonblocking_cloud.ino</code> as it runs on the Uno:
+        <span class="legend"><span class="lg lg-enter">→ enter</span>
+        <span class="lg lg-call">↳ call</span>
+        <span class="lg lg-exit">← exit</span></span>
+      </p>
+
+      <!-- Active-function breadcrumb + diagram -->
+      <div class="flow-stage">
+        <div id="flow-diagram" class="flow-diagram">
+          <div class="fnode" data-fn="loop">loop()</div>
+          <div class="fnode" data-fn="updateBlink">updateBlink()</div>
+          <div class="fnode" data-fn="reportStatus">reportStatus()</div>
+          <div class="fnode" data-fn="handleCommand">handleCommand()</div>
+          <div class="fnode fnode-leaf" data-fn="setLed">setLed()</div>
+          <div class="fnode fnode-leaf" data-fn="startBlink">startBlink()</div>
+          <div class="fnode fnode-leaf" data-fn="setInterval">setInterval()</div>
+        </div>
+        <div id="flow-breadcrumb" class="flow-breadcrumb">loop() — idle</div>
+      </div>
+
+      <div class="control-row">
+        <label class="step-mode-label"><input type="checkbox" id="flow-pause"> Pause feed</label>
+        <button id="flow-clear-btn" class="ctrl" disabled>Clear</button>
+      </div>
+      <div id="flow-feed" class="flow-feed">
+        <div class="flow-empty">Waiting for FLOW events from the board&hellip;</div>
+      </div>
+    </section>
+
+    <!-- Raw serial log -->
+    <section class="log-section">
+      <div class="log-header">
+        <h2>Serial Log</h2>
+        <button id="clear-log-btn">Clear</button>
+      </div>
+      <pre id="log" class="log"></pre>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Requires Chrome or Edge (Web Serial API). Works only with an
+      <strong>Arduino Uno R3</strong> running
+      <code>examples/09_nonblocking_cloud.ino</code>.
+    </p>
+  </footer>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
