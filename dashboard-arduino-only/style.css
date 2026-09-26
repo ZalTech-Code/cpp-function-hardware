@@ -244,46 +244,83 @@ footer {
   margin-bottom: 14px;
 }
 
-.flow-diagram {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin-bottom: 10px;
+/* Two-pane split: block diagram (left) + event feed (right) */
+.flow-split {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+}
+@media (max-width: 820px) {
+  .flow-split { grid-template-columns: 1fr; }
+}
+.pane-head {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 8px;
 }
 
-.fnode {
-  font-family: "SF Mono", Menlo, monospace;
-  font-size: 0.8rem;
-  background: var(--panel-2);
+/* Animated block diagram (SVG) */
+.block-diagram {
+  width: 100%;
+  height: auto;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 6px 12px;
-  color: var(--muted);
-  transition: all 0.15s ease;
+  display: block;
 }
-.fnode[data-fn="loop"] { border-width: 2px; }
-.fnode-leaf { border-style: dashed; }
+.block rect {
+  fill: var(--panel-2);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+.block-leaf rect { stroke-dasharray: 4 3; }
+.block-name {
+  fill: var(--text);
+  font-family: "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  text-anchor: middle;
+}
+.block-sub {
+  fill: var(--muted);
+  font-family: "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  text-anchor: middle;
+}
+.block text { transition: fill 0.15s ease; pointer-events: none; }
 
-.fnode.active {
-  color: #04222e;
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(79, 195, 247, 0.6);
-  font-weight: 700;
-  animation: fnode-pulse 0.9s ease-in-out infinite;
+.block.active rect {
+  fill: var(--accent);
+  stroke: var(--accent);
 }
-@keyframes fnode-pulse {
-  0%, 100% { box-shadow: 0 0 6px rgba(79, 195, 247, 0.4); }
-  50%      { box-shadow: 0 0 16px rgba(79, 195, 247, 0.9); }
+.block.active .block-name { fill: #04222e; font-weight: 700; }
+.block.active .block-sub   { fill: #0a3a4a; }
+
+/* connecting wires + the pulse that travels along them */
+.wire {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 2;
+  transition: stroke 0.15s ease;
+}
+.wire.active {
+  stroke: var(--accent);
+  stroke-dasharray: 6 4;
+  animation: wire-flow 0.6s linear infinite;
+}
+@keyframes wire-flow {
+  to { stroke-dashoffset: -10; }
 }
 
 .flow-breadcrumb {
   text-align: center;
   font-family: "SF Mono", Menlo, monospace;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--accent);
   min-height: 1.4em;
+  margin-top: 8px;
 }
 
 .flow-feed {
@@ -333,3 +370,43 @@ footer {
 .flow-exit .flow-text { color: var(--green); }
 .flow-exit .flow-text::before { content: "← "; }
 .flow-other .flow-text { color: var(--muted); }
+
+/* ---- Code reference panel ---- */
+.code-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.code-section h2 { font-size: 1.05rem; margin-bottom: 0; }
+.code-section h2 code { color: var(--accent); }
+
+.code-view {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  height: 380px;
+  overflow: auto;
+  font-family: "SF Mono", Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre;
+}
+
+/* syntax tokens */
+.tk-kw  { color: #ff7b72; }           /* keywords */
+.tk-str { color: #a5d6ff; }           /* strings */
+.tk-com { color: #8b98a5; font-style: italic; }  /* comments */
+
+/* the function executing right now */
+.code-fn { display: inline; transition: background 0.15s ease; }
+.code-fn.running {
+  display: block;
+  background: rgba(79, 195, 247, 0.10);
+  outline: 1px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: -4px 0 0 0 var(--accent);
+}

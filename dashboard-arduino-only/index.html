@@ -90,36 +90,75 @@
         loops/sec over USB, so we slow the board instead.)
       </p>
 
-      <!-- Active-function breadcrumb + diagram -->
-      <div class="flow-stage">
-        <div id="flow-diagram" class="flow-diagram">
-          <div class="fnode" data-fn="loop">loop()</div>
-          <div class="fnode" data-fn="updateBlink">updateBlink()</div>
-          <div class="fnode" data-fn="reportStatus">reportStatus()</div>
-          <div class="fnode" data-fn="handleCommand">handleCommand()</div>
-          <div class="fnode fnode-leaf" data-fn="setLed">setLed()</div>
-          <div class="fnode fnode-leaf" data-fn="startBlink">startBlink()</div>
-          <div class="fnode fnode-leaf" data-fn="setInterval">setInterval()</div>
-        </div>
-        <div id="flow-breadcrumb" class="flow-breadcrumb">loop() — idle</div>
-      </div>
+      <!-- Two-pane: animated block diagram (left) + live feed (right) -->
+      <div class="flow-split">
+        <!-- Animated block diagram: shows which block is executing -->
+        <div class="flow-diagram-pane">
+          <div class="pane-head">Program blocks</div>
+          <svg id="block-diagram" viewBox="0 0 300 470" class="block-diagram" role="img" aria-label="Program block diagram">
+            <!-- connecting wires (drawn first, behind blocks) -->
+            <path class="wire" data-wire="loop-updateBlink"   d="M150 66 L150 92" />
+            <path class="wire" data-wire="loop-reportStatus"  d="M150 66 L150 92 M150 150 L150 176" />
+            <path class="wire" data-wire="loop-handleCommand" d="M150 234 L150 260" />
+            <path class="wire" data-wire="handleCommand-setLed"      d="M150 318 L60 352 L60 376" />
+            <path class="wire" data-wire="handleCommand-startBlink"  d="M150 318 L150 352 L150 376" />
+            <path class="wire" data-wire="handleCommand-setInterval" d="M150 318 L240 352 L240 376" />
 
-      <div class="control-row">
-        <label class="step-mode-label"><input type="checkbox" id="flow-step-mode"> Step mode</label>
-        <button id="flow-step-btn" class="ctrl" disabled>Step ▸</button>
-        <button id="flow-play-btn" class="ctrl" disabled>Play</button>
-        <label for="flow-speed" class="step-mode-label">Speed:</label>
-        <select id="flow-speed">
-          <option value="1000">Slow (1/s)</option>
-          <option value="400" selected>Medium</option>
-          <option value="150">Fast</option>
-        </select>
-        <span id="flow-queue-info" class="queue-info"></span>
-        <label class="step-mode-label"><input type="checkbox" id="flow-pause"> Pause feed</label>
-        <button id="flow-clear-btn" class="ctrl" disabled>Clear</button>
-      </div>
-      <div id="flow-feed" class="flow-feed">
-        <div class="flow-empty">Waiting for FLOW events from the board&hellip;</div>
+            <!-- blocks -->
+            <g class="block" data-fn="loop">
+              <rect x="70" y="20" width="160" height="46" rx="8"></rect>
+              <text x="150" y="40" class="block-name">loop()</text>
+              <text x="150" y="56" class="block-sub">runs forever</text>
+            </g>
+            <g class="block" data-fn="updateBlink">
+              <rect x="70" y="92" width="160" height="40" rx="8"></rect>
+              <text x="150" y="116" class="block-name">updateBlink()</text>
+            </g>
+            <g class="block" data-fn="reportStatus">
+              <rect x="70" y="176" width="160" height="40" rx="8"></rect>
+              <text x="150" y="200" class="block-name">reportStatus()</text>
+            </g>
+            <g class="block" data-fn="handleCommand">
+              <rect x="70" y="260" width="160" height="40" rx="8"></rect>
+              <text x="150" y="284" class="block-name">handleCommand()</text>
+            </g>
+            <g class="block block-leaf" data-fn="setLed">
+              <rect x="10" y="376" width="100" height="38" rx="8"></rect>
+              <text x="60" y="400" class="block-name">setLed()</text>
+            </g>
+            <g class="block block-leaf" data-fn="startBlink">
+              <rect x="120" y="376" width="100" height="38" rx="8"></rect>
+              <text x="170" y="400" class="block-name">startBlink()</text>
+            </g>
+            <g class="block block-leaf" data-fn="setInterval">
+              <rect x="225" y="376" width="70" height="38" rx="8"></rect>
+              <text x="260" y="400" class="block-name" font-size="11">setInterval()</text>
+            </g>
+          </svg>
+          <div id="flow-breadcrumb" class="flow-breadcrumb">loop() — idle</div>
+        </div>
+
+        <!-- Live feed pane -->
+        <div class="flow-feed-pane">
+          <div class="pane-head">Event feed</div>
+          <div class="control-row">
+            <label class="step-mode-label"><input type="checkbox" id="flow-step-mode"> Step mode</label>
+            <button id="flow-step-btn" class="ctrl" disabled>Step ▸</button>
+            <button id="flow-play-btn" class="ctrl" disabled>Play</button>
+            <label for="flow-speed" class="step-mode-label">Speed:</label>
+            <select id="flow-speed">
+              <option value="1000">Slow (1/s)</option>
+              <option value="400" selected>Medium</option>
+              <option value="150">Fast</option>
+            </select>
+            <span id="flow-queue-info" class="queue-info"></span>
+            <label class="step-mode-label"><input type="checkbox" id="flow-pause"> Pause</label>
+            <button id="flow-clear-btn" class="ctrl" disabled>Clear</button>
+          </div>
+          <div id="flow-feed" class="flow-feed">
+            <div class="flow-empty">Waiting for FLOW events from the board&hellip;</div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -130,6 +169,205 @@
         <button id="clear-log-btn">Clear</button>
       </div>
       <pre id="log" class="log"></pre>
+    </section>
+
+    <!-- Full sketch for reference; the running function highlights live -->
+    <section class="code-section">
+      <div class="log-header">
+        <h2>The Code — <code>09_nonblocking_cloud.ino</code></h2>
+        <span class="hint-inline">the function running right now is highlighted</span>
+      </div>
+      <pre id="code-view" class="code-view"><code id="code-content"><span class="tk-com">/*
+ * 09_nonblocking_cloud.ino — full source. The function running on the board
+ * right now is highlighted below. (Mirror of examples/09_nonblocking_cloud.ino)
+ */</span>
+<span class="tk-com">// ---- Uno R3 board config (inlined from board_config.h) ----</span>
+<span class="tk-kw">const</span> <span class="tk-kw">int</span>   LED_PIN    = LED_BUILTIN;  <span class="tk-com">// pin 13 on Uno R3</span>
+<span class="tk-kw">const</span> <span class="tk-kw">int</span>   SENSOR_PIN = A0;
+<span class="tk-kw">const</span> <span class="tk-kw">int</span>   ADC_MAX    = 1023;
+<span class="tk-kw">const</span> <span class="tk-kw">char</span>* BOARD_NAME = <span class="tk-str">"Arduino Uno R3"</span>
+<span class="tk-kw">const</span> <span class="tk-kw">int</span> LED = LED_PIN;
+
+<span class="tk-com">// ---- Blink state (non-blocking) ----</span>
+<span class="tk-kw">bool</span>          ledState      = <span class="tk-kw">false</span>;
+<span class="tk-kw">unsigned</span> <span class="tk-kw">long</span> lastBlink     = 0;
+<span class="tk-kw">int</span>           blinkInterval = 500;  <span class="tk-com">// ms between toggles</span>
+<span class="tk-kw">int</span>           blinkTarget   = 0;    <span class="tk-com">// toggles remaining (0 = idle)</span>
+<span class="tk-kw">int</span>           blinkCount    = 0;    <span class="tk-com">// toggles done this sequence</span>
+
+<span class="tk-com">// ---- Status reporting / flow ----</span>
+<span class="tk-kw">const</span> <span class="tk-kw">int</span>     STATUS_INTERVAL = 200;
+<span class="tk-kw">unsigned</span> <span class="tk-kw">long</span> lastStatus      = 0;
+<span class="tk-kw">unsigned</span> <span class="tk-kw">long</span> loopIterations  = 0;   <span class="tk-com">// how many times loop() has run</span>
+
+<span class="tk-com">// ---- Trace mode (dashboard-controlled) ----</span>
+<span class="tk-kw">bool</span>          traceMode   = <span class="tk-kw">false</span>;
+<span class="tk-kw">int</span>           tracePaceMs = 400;     <span class="tk-com">// ms per loop() while tracing</span>
+<span class="tk-kw">unsigned</span> <span class="tk-kw">long</span> lastTraceLoop = 0;
+
+<span class="code-fn" data-fn="setup"><span class="tk-kw">void</span> setup() {
+  pinMode(LED, OUTPUT);
+  Serial.begin(9600);
+  Serial.print(<span class="tk-str">"BOARD;name="</span>); Serial.print(BOARD_NAME);
+  Serial.print(<span class="tk-str">";adcmax="</span>);    Serial.println(ADC_MAX);
+  Serial.println(<span class="tk-str">"READY;sketch=09_nonblocking_cloud"</span>);
+}
+</span>
+<span class="code-fn" data-fn="loop"><span class="tk-kw">void</span> loop() {
+  <span class="tk-kw">unsigned</span> <span class="tk-kw">long</span> now = millis();
+  loopIterations++;
+
+  <span class="tk-com">// In trace mode, run at a watchable pace and announce each pass.</span>
+  <span class="tk-kw">bool</span> tracing = <span class="tk-kw">false</span>;
+  <span class="tk-kw">if</span> (traceMode &amp;&amp; (now - lastTraceLoop &gt;= (<span class="tk-kw">unsigned</span> <span class="tk-kw">long</span>)tracePaceMs)) {
+    tracing = <span class="tk-kw">true</span>;
+    lastTraceLoop = now;
+    flowEventKV(<span class="tk-str">"loop"</span>, <span class="tk-str">"loop"</span>, <span class="tk-str">"iter"</span>, (<span class="tk-kw">long</span>)loopIterations);
+  }
+
+  <span class="tk-com">// 1) LED blink state machine (the "LED loop" inside the main loop).</span>
+  <span class="tk-kw">if</span> (tracing) flowEvent(<span class="tk-str">"enter"</span>, <span class="tk-str">"updateBlink"</span>);
+  updateBlink(now);
+  <span class="tk-kw">if</span> (tracing) flowEvent(<span class="tk-str">"exit"</span>, <span class="tk-str">"updateBlink"</span>);
+
+  <span class="tk-com">// 2) Periodic status report for the dashboard.</span>
+  <span class="tk-kw">if</span> (now - lastStatus &gt;= STATUS_INTERVAL) {
+    reportStatus(now);
+    lastStatus = now;
+  }
+
+  <span class="tk-com">// 3) Handle dashboard commands (never blocks the loop).</span>
+  <span class="tk-kw">if</span> (Serial.available()) {
+    String line = Serial.readStringUntil(<span class="tk-str">'\n'</span>);
+    line.trim();
+    <span class="tk-kw">if</span> (line.startsWith(<span class="tk-str">"CMD;"</span>)) handleCommand(line);
+  }
+
+  <span class="tk-com">// Pace the loop while tracing so each pass is individually visible.</span>
+  <span class="tk-kw">if</span> (traceMode) delay(tracePaceMs);
+}
+</span>
+<span class="tk-com">// ---- FUNCTIONS ----</span>
+
+<span class="tk-com">// Emit "FLOW;evt=...;fn=..." — one line the dashboard renders.</span>
+<span class="code-fn" data-fn="flowEvent"><span class="tk-kw">void</span> flowEvent(<span class="tk-kw">const</span> <span class="tk-kw">char</span>* evt, <span class="tk-kw">const</span> <span class="tk-kw">char</span>* fn) {
+  Serial.print(<span class="tk-str">"FLOW;evt="</span>); Serial.print(evt);
+  Serial.print(<span class="tk-str">";fn="</span>);      Serial.println(fn);
+}
+</span>
+<span class="code-fn" data-fn="flowEventKV"><span class="tk-kw">void</span> flowEventKV(<span class="tk-kw">const</span> <span class="tk-kw">char</span>* evt, <span class="tk-kw">const</span> <span class="tk-kw">char</span>* fn, <span class="tk-kw">const</span> <span class="tk-kw">char</span>* key, <span class="tk-kw">long</span> val) {
+  Serial.print(<span class="tk-str">"FLOW;evt="</span>); Serial.print(evt);
+  Serial.print(<span class="tk-str">";fn="</span>);      Serial.print(fn);
+  Serial.print(<span class="tk-str">';'</span>);         Serial.print(key);
+  Serial.print(<span class="tk-str">'='</span>);         Serial.println(val);
+}
+</span>
+<span class="tk-com">// The "LED loop": toggles the LED on schedule. Called every loop() iteration.</span>
+<span class="code-fn" data-fn="updateBlink"><span class="tk-kw">void</span> updateBlink(<span class="tk-kw">unsigned</span> <span class="tk-kw">long</span> now) {
+  <span class="tk-kw">if</span> (blinkTarget &lt;= 0) <span class="tk-kw">return</span>;                        <span class="tk-com">// idle: no blink</span>
+  <span class="tk-kw">if</span> (now - lastBlink &lt; (<span class="tk-kw">unsigned</span> <span class="tk-kw">long</span>)blinkInterval) <span class="tk-kw">return</span>; <span class="tk-com">// not time yet</span>
+
+  ledState = !ledState;
+  digitalWrite(LED, ledState ? HIGH : LOW);
+  lastBlink = now;
+  blinkTarget--;
+  blinkCount++;
+
+  <span class="tk-kw">if</span> (blinkTarget == 0) {          <span class="tk-com">// sequence finished: leave LED off</span>
+    ledState = <span class="tk-kw">false</span>;
+    digitalWrite(LED, LOW);
+  }
+
+  <span class="tk-com">// One FLOW line per toggle (every toggle when tracing).</span>
+  <span class="tk-kw">if</span> (blinkInterval &gt;= 100 || traceMode) {
+    flowEventKV(<span class="tk-str">"call"</span>, <span class="tk-str">"updateBlink"</span>, <span class="tk-str">"led"</span>, ledState ? 1 : 0);
+  }
+}
+</span>
+<span class="tk-com">// One STATUS line the dashboard parses to update its cards.</span>
+<span class="code-fn" data-fn="reportStatus"><span class="tk-kw">void</span> reportStatus(<span class="tk-kw">unsigned</span> <span class="tk-kw">long</span> now) {
+  flowEventKV(<span class="tk-str">"enter"</span>, <span class="tk-str">"reportStatus"</span>, <span class="tk-str">"iter"</span>, (<span class="tk-kw">long</span>)loopIterations);
+  Serial.print(<span class="tk-str">"STATUS;uptime="</span>); Serial.print(now);
+  Serial.print(<span class="tk-str">";led="</span>);          Serial.print(ledState ? 1 : 0);
+  Serial.print(<span class="tk-str">";blinks="</span>);       Serial.print(blinkCount);
+  Serial.print(<span class="tk-str">";sensor=0"</span>);
+  Serial.println();
+  flowEvent(<span class="tk-str">"exit"</span>, <span class="tk-str">"reportStatus"</span>);
+}
+</span>
+<span class="tk-com">// Parse "CMD;key=value;key=value" and act on each pair.</span>
+<span class="code-fn" data-fn="handleCommand"><span class="tk-kw">void</span> handleCommand(String line) {
+  String safe = line;
+  safe.replace(<span class="tk-str">';'</span>, <span class="tk-str">' '</span>);
+  Serial.print(<span class="tk-str">"FLOW;evt=enter;fn=handleCommand;cmd="</span>);
+  Serial.println(safe);
+
+  <span class="tk-kw">bool</span> needStatus = <span class="tk-kw">false</span>;
+  <span class="tk-kw">int</span>  start = 4;  <span class="tk-com">// skip "CMD;"</span>
+
+  <span class="tk-kw">while</span> (start &lt; (<span class="tk-kw">int</span>)line.length()) {
+    <span class="tk-kw">int</span> sep = line.indexOf(<span class="tk-str">';'</span>, start);
+    <span class="tk-kw">if</span> (sep &lt; 0) sep = line.length();
+    String token = line.substring(start, sep);
+    <span class="tk-kw">int</span> eq = token.indexOf(<span class="tk-str">'='</span>);
+    <span class="tk-kw">if</span> (eq &gt; 0) {
+      String key = token.substring(0, eq);
+      String val = token.substring(eq + 1);
+
+      <span class="tk-kw">if</span> (key == <span class="tk-str">"led"</span>) {
+        ledState = (val == <span class="tk-str">"1"</span> || val == <span class="tk-str">"true"</span>);
+        digitalWrite(LED, ledState ? HIGH : LOW);
+        blinkTarget = 0;
+        flowEventKV(<span class="tk-str">"call"</span>, <span class="tk-str">"setLed"</span>, <span class="tk-str">"val"</span>, ledState ? 1 : 0);
+        needStatus = <span class="tk-kw">true</span>;
+
+      } <span class="tk-kw">else</span> <span class="tk-kw">if</span> (key == <span class="tk-str">"blink"</span>) {
+        <span class="tk-kw">int</span> n = val.toInt();
+        <span class="tk-kw">if</span> (n &gt; 0) {
+          ledState = <span class="tk-kw">false</span>;
+          digitalWrite(LED, LOW);
+          blinkTarget = n * 2;                 <span class="tk-com">// each blink = on + off</span>
+          blinkCount  = 0;
+          lastBlink   = millis() - blinkInterval;
+        } <span class="tk-kw">else</span> {
+          ledState = <span class="tk-kw">false</span>;
+          digitalWrite(LED, LOW);
+          blinkTarget = 0;
+        }
+        flowEventKV(<span class="tk-str">"call"</span>, <span class="tk-str">"startBlink"</span>, <span class="tk-str">"val"</span>, n);
+        needStatus = <span class="tk-kw">true</span>;
+
+      } <span class="tk-kw">else</span> <span class="tk-kw">if</span> (key == <span class="tk-str">"interval"</span>) {
+        <span class="tk-kw">int</span> ms = val.toInt();
+        <span class="tk-kw">if</span> (ms &gt;= 50 &amp;&amp; ms &lt;= 2000) {
+          blinkInterval = ms;
+          flowEventKV(<span class="tk-str">"call"</span>, <span class="tk-str">"setInterval"</span>, <span class="tk-str">"val"</span>, ms);
+        }
+
+      } <span class="tk-kw">else</span> <span class="tk-kw">if</span> (key == <span class="tk-str">"trace"</span>) {
+        traceMode = (val == <span class="tk-str">"1"</span> || val == <span class="tk-str">"on"</span> || val == <span class="tk-str">"true"</span>);
+        lastTraceLoop = millis();
+        flowEventKV(<span class="tk-str">"call"</span>, <span class="tk-str">"setTrace"</span>, <span class="tk-str">"val"</span>, traceMode ? 1 : 0);
+        needStatus = <span class="tk-kw">true</span>;
+
+      } <span class="tk-kw">else</span> <span class="tk-kw">if</span> (key == <span class="tk-str">"pace"</span>) {
+        <span class="tk-kw">int</span> ms = val.toInt();
+        <span class="tk-kw">if</span> (ms &gt;= 50 &amp;&amp; ms &lt;= 2000) {
+          tracePaceMs = ms;
+          flowEventKV(<span class="tk-str">"call"</span>, <span class="tk-str">"setPace"</span>, <span class="tk-str">"val"</span>, ms);
+        }
+
+      } <span class="tk-kw">else</span> <span class="tk-kw">if</span> (key == <span class="tk-str">"report"</span>) {
+        needStatus = <span class="tk-kw">true</span>;
+      }
+    }
+    start = sep + 1;
+  }
+
+  flowEvent(<span class="tk-str">"exit"</span>, <span class="tk-str">"handleCommand"</span>);
+  <span class="tk-kw">if</span> (needStatus) reportStatus(millis());
+}
+</span></code></pre>
     </section>
   </main>
 

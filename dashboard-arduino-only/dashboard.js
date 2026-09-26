@@ -30,8 +30,9 @@ const el = {
   blinkBtn:       document.getElementById("blink-btn"),
   intervalMs:     document.getElementById("interval-ms"),
   intervalBtn:    document.getElementById("interval-btn"),
-  flowDiagram:    document.getElementById("flow-diagram"),
+  blockDiagram:   document.getElementById("block-diagram"),
   flowBreadcrumb: document.getElementById("flow-breadcrumb"),
+  codeContent:    document.getElementById("code-content"),
   flowFeed:       document.getElementById("flow-feed"),
   flowPause:      document.getElementById("flow-pause"),
   flowClearBtn:   document.getElementById("flow-clear-btn"),
@@ -213,7 +214,19 @@ function applyFlowEvent(d) {
   addFlowRow(kind, text, d._time, d.evt);
 }
 
-// Highlight the running function in the diagram + set the breadcrumb.
+// Which wire connects a called function to its caller in the block diagram.
+const FLOW_WIRES = {
+  updateBlink:  "loop-updateBlink",
+  reportStatus: "loop-reportStatus",
+  handleCommand:"loop-handleCommand",
+  setLed:       "handleCommand-setLed",
+  startBlink:   "handleCommand-startBlink",
+  setInterval:  "handleCommand-setInterval",
+  setTrace:     "handleCommand-setLed",     // reuse a visible command wire
+  setPace:      "handleCommand-setInterval",
+};
+
+// Highlight the running function in the block diagram + breadcrumb + code.
 function setFlowActive(fn, breadcrumbText) {
   resetFlowStage();
   flashFlowNode(fn);
@@ -221,28 +234,56 @@ function setFlowActive(fn, breadcrumbText) {
 }
 
 function flashFlowNode(fn) {
-  const node = el.flowDiagram.querySelector(`[data-fn="${fn}"]`);
-  if (!node) return;
-  node.classList.add("active");
+  const node = el.blockDiagram.querySelector(`[data-fn="${fn}"]`);
+  const wireKey = FLOW_WIRES[fn];
+  const wire = wireKey
+    ? el.blockDiagram.querySelector(`[data-wire="${wireKey}"]`)
+    : null;
+
+  if (node) node.classList.add("active");
+  if (wire) wire.classList.add("active");
+  highlightCodeFn(fn);
   el.flowBreadcrumb.textContent =
     fn === "loop" ? "loop() — idle" : `loop() → ${fn}()`;
+
   if (flowTimers[fn]) clearTimeout(flowTimers[fn]);
   // In step mode, hold the highlight until the next step (no auto-fade).
   if (el.flowStepMode.checked) return;
   flowTimers[fn] = setTimeout(() => {
-    node.classList.remove("active");
-    if (!el.flowDiagram.querySelector(".fnode.active")) {
+    if (node) node.classList.remove("active");
+    if (wire) wire.classList.remove("active");
+    if (!el.blockDiagram.querySelector(".block.active")) {
       el.flowBreadcrumb.textContent = "loop() — idle";
+      highlightCodeFn(null);
     }
   }, FLOW_ACTIVE_MS);
 }
 
 function resetFlowStage() {
   for (const fn in flowTimers) clearTimeout(flowTimers[fn]);
-  el.flowDiagram.querySelectorAll(".fnode.active").forEach((n) =>
+  el.blockDiagram.querySelectorAll(".block.active").forEach((n) =>
+    n.classList.remove("active")
+  );
+  el.blockDiagram.querySelectorAll(".wire.active").forEach((n) =>
     n.classList.remove("active")
   );
   el.flowBreadcrumb.textContent = "loop() — idle";
+  highlightCodeFn(null);
+}
+
+// Highlight the currently-running function in the code reference panel.
+function highlightCodeFn(fn) {
+  if (!el.codeContent) return;
+  el.codeContent.querySelectorAll(".code-fn.running").forEach((n) =>
+    n.classList.remove("running")
+  );
+  if (!fn) return;
+  const span = el.codeContent.querySelector(`.code-fn[data-fn="${fn}"]`);
+  if (span) {
+    span.classList.add("running");
+    // Keep the highlighted function in view while tracing (gentle scroll).
+    span.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
 }
 
 function addFlowRow(kind, text, time, evt) {
