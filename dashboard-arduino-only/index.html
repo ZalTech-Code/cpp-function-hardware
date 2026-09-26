@@ -91,6 +91,16 @@
       </div>
 
       <div class="control-row">
+        <label class="step-mode-label"><input type="checkbox" id="flow-step-mode"> Step mode</label>
+        <button id="flow-step-btn" class="ctrl" disabled>Step ▸</button>
+        <button id="flow-play-btn" class="ctrl" disabled>Play</button>
+        <label for="flow-speed" class="step-mode-label">Speed:</label>
+        <select id="flow-speed">
+          <option value="1000">Slow (1/s)</option>
+          <option value="400" selected>Medium</option>
+          <option value="150">Fast</option>
+        </select>
+        <span id="flow-queue-info" class="queue-info"></span>
         <label class="step-mode-label"><input type="checkbox" id="flow-pause"> Pause feed</label>
         <button id="flow-clear-btn" class="ctrl" disabled>Clear</button>
       </div>

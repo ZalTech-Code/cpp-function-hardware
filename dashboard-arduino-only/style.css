@@ -131,15 +131,22 @@ main { max-width: 980px; margin: 0 auto; padding: 24px; }
 .ctrl { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
 .ctrl:hover:not(:disabled) { border-color: var(--accent); }
 
-input[type="number"] {
+input[type="number"], select {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 7px 10px;
   border-radius: 6px;
-  width: 80px;
 }
+input[type="number"] { width: 80px; }
 label { color: var(--muted); font-size: 0.9rem; }
+
+.queue-info {
+  font-size: 0.75rem;
+  color: var(--accent);
+  white-space: nowrap;
+  min-width: 90px;
+}
 
 .step-mode-label {
   font-size: 0.9rem;
@@ -222,6 +229,11 @@ footer {
   border-color: var(--accent);
   box-shadow: 0 0 12px rgba(79, 195, 247, 0.6);
   font-weight: 700;
+  animation: fnode-pulse 0.9s ease-in-out infinite;
+}
+@keyframes fnode-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(79, 195, 247, 0.4); }
+  50%      { box-shadow: 0 0 16px rgba(79, 195, 247, 0.9); }
 }
 
 .flow-breadcrumb {
@@ -254,6 +266,13 @@ footer {
   text-overflow: ellipsis;
 }
 .flow-row:nth-child(odd) { background: rgba(255, 255, 255, 0.02); }
+
+/* The event executing right now (step mode / latest in live mode) */
+.flow-row.current {
+  background: rgba(79, 195, 247, 0.14);
+  outline: 1px solid var(--accent);
+}
+.flow-row.current .flow-time { color: var(--accent); }
 
 .flow-time {
   color: var(--muted);

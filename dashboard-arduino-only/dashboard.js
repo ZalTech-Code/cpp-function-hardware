@@ -35,6 +35,11 @@ const el = {
   flowFeed:       document.getElementById("flow-feed"),
   flowPause:      document.getElementById("flow-pause"),
   flowClearBtn:   document.getElementById("flow-clear-btn"),
+  flowStepMode:   document.getElementById("flow-step-mode"),
+  flowStepBtn:    document.getElementById("flow-step-btn"),
+  flowPlayBtn:    document.getElementById("flow-play-btn"),
+  flowSpeed:      document.getElementById("flow-speed"),
+  flowQueueInfo:  document.getElementById("flow-queue-info"),
   log:            document.getElementById("log"),
   clearLogBtn:    document.getElementById("clear-log-btn"),
 };
@@ -134,9 +139,16 @@ function handleLine(line) {
 
 // ---- Live function flow ----
 const FLOW_MAX_ROWS = 60;      // keep the DOM small
-const FLOW_ACTIVE_MS = 600;    // how long a diagram node stays highlighted
+const FLOW_ACTIVE_MS = 600;    // how long a diagram node stays highlighted (live mode)
 let flowNewestOnTop = true;
 const flowTimers = {};         // fn -> timeout id, for node highlight decay
+let currentFlowRow = null;     // the feed row for the most recent event
+
+// Step mode: queue events and apply them one at a time.
+let flowQueue = [];
+let flowStepIndex = 0;
+let flowPlaying = false;
+let flowPlayInterval = null;
 
 function flowArg(d) {
   // Build the argument text for a FLOW event, e.g. "iter 4823", "CMD led 1".
@@ -147,9 +159,21 @@ function flowArg(d) {
   return "";
 }
 
+// Entry point for each "FLOW;" line from the board.
 function handleFlow(line) {
   const d = parseKv(line);
-  const t = new Date().toLocaleTimeString();
+  d._time = new Date().toLocaleTimeString();
+
+  if (el.flowStepMode.checked) {
+    flowQueue.push(d);       // hold it — user steps through one at a time
+    updateFlowStepButtons();
+    return;
+  }
+  applyFlowEvent(d);
+}
+
+// Turn one parsed FLOW event into {kind, text} and render it.
+function applyFlowEvent(d) {
   let kind, text;
 
   switch (d.evt) {
@@ -170,9 +194,9 @@ function handleFlow(line) {
       break;
     default:
       kind = "other";
-      text = line;
+      text = "FLOW " + (d.evt || "") + " " + (d.fn || "");
   }
-  addFlowRow(kind, text, t);
+  addFlowRow(kind, text, d._time, d.evt);
 }
 
 // Highlight the running function in the diagram + set the breadcrumb.
@@ -189,6 +213,8 @@ function flashFlowNode(fn) {
   el.flowBreadcrumb.textContent =
     fn === "loop" ? "loop() — idle" : `loop() → ${fn}()`;
   if (flowTimers[fn]) clearTimeout(flowTimers[fn]);
+  // In step mode, hold the highlight until the next step (no auto-fade).
+  if (el.flowStepMode.checked) return;
   flowTimers[fn] = setTimeout(() => {
     node.classList.remove("active");
     if (!el.flowDiagram.querySelector(".fnode.active")) {
@@ -205,7 +231,7 @@ function resetFlowStage() {
   el.flowBreadcrumb.textContent = "loop() — idle";
 }
 
-function addFlowRow(kind, text, time) {
+function addFlowRow(kind, text, time, evt) {
   const feed = el.flowFeed;
   const empty = feed.querySelector(".flow-empty");
   if (empty) empty.remove();
@@ -216,18 +242,90 @@ function addFlowRow(kind, text, time) {
   row.innerHTML =
     `<span class="flow-time">${escapeHtml(time)}</span>` +
     `<span class="flow-text">${escapeHtml(text)}</span>`;
-  if (flowNewestOnTop) feed.prepend(row);
+  // In step mode the feed reads top-to-bottom in execution order; live = newest on top.
+  const newestOnTop = flowNewestOnTop && !el.flowStepMode.checked;
+  if (newestOnTop) feed.prepend(row);
   else feed.appendChild(row);
 
+  // Highlight the row that's executing right now.
+  if (currentFlowRow) currentFlowRow.classList.remove("current");
+  row.classList.add("current");
+  currentFlowRow = row;
+  if (!newestOnTop) feed.scrollTop = feed.scrollHeight;
+
   while (feed.children.length > FLOW_MAX_ROWS) {
-    feed.removeChild(flowNewestOnTop ? feed.lastChild : feed.firstChild);
+    feed.removeChild(newestOnTop ? feed.lastChild : feed.firstChild);
   }
+}
+
+// ---- Step mode: run one queued event, or play through them at a set speed ----
+function updateFlowStepButtons() {
+  const pending = flowQueue.length - flowStepIndex;
+  el.flowStepBtn.disabled = !el.flowStepMode.checked || pending <= 0 || flowPlaying;
+  el.flowPlayBtn.disabled = !el.flowStepMode.checked || pending <= 0;
+  el.flowPlayBtn.textContent = flowPlaying ? "Pause" : "Play";
+  el.flowQueueInfo.textContent =
+    el.flowStepMode.checked && flowQueue.length > 0
+      ? `queued: ${pending} of ${flowQueue.length}`
+      : "";
+}
+
+function flowStepOnce() {
+  if (flowStepIndex < flowQueue.length) {
+    applyFlowEvent(flowQueue[flowStepIndex]);
+    flowStepIndex++;
+    updateFlowStepButtons();
+  }
+}
+
+function toggleFlowPlay() {
+  if (!flowPlaying) {
+    flowPlaying = true;
+    const speed = parseInt(el.flowSpeed.value, 10) || 400;
+    flowPlayInterval = setInterval(() => {
+      if (flowStepIndex < flowQueue.length) {
+        flowStepOnce();
+      } else {
+        stopFlowPlay();
+      }
+    }, speed);
+  } else {
+    stopFlowPlay();
+  }
+  updateFlowStepButtons();
+}
+
+function stopFlowPlay() {
+  flowPlaying = false;
+  if (flowPlayInterval) {
+    clearInterval(flowPlayInterval);
+    flowPlayInterval = null;
+  }
+  updateFlowStepButtons();
+}
+
+// Leaving step mode: flush whatever is still queued so nothing is lost.
+function flushFlowQueue() {
+  stopFlowPlay();
+  while (flowStepIndex < flowQueue.length) {
+    applyFlowEvent(flowQueue[flowStepIndex]);
+    flowStepIndex++;
+  }
+  flowQueue = [];
+  flowStepIndex = 0;
+  updateFlowStepButtons();
 }
 
 function clearFlowFeed() {
   el.flowFeed.innerHTML =
     '<div class="flow-empty">Waiting for FLOW events from the board&hellip;</div>';
   el.flowClearBtn.disabled = true;
+  currentFlowRow = null;
+  flowQueue = [];
+  flowStepIndex = 0;
+  stopFlowPlay();
+  updateFlowStepButtons();
+  resetFlowStage();
 }
 
 // ---- Continuously read bytes and split into lines ----
@@ -319,9 +417,27 @@ el.flowPause.addEventListener("change", () => {
 });
 el.flowClearBtn.addEventListener("click", clearFlowFeed);
 
+// ---- Step-mode controls ----
+el.flowStepMode.addEventListener("change", () => {
+  if (el.flowStepMode.checked) {
+    log("Step mode ON: function-flow events are queued. Click Step ▸ or Play.");
+  } else {
+    flushFlowQueue();
+    log("Step mode OFF: queued events flushed, feed is live again.");
+  }
+  updateFlowStepButtons();
+});
+el.flowStepBtn.addEventListener("click", flowStepOnce);
+el.flowPlayBtn.addEventListener("click", toggleFlowPlay);
+el.flowSpeed.addEventListener("change", () => {
+  // Restart the timer at the new speed if we're mid-play.
+  if (flowPlaying) { stopFlowPlay(); toggleFlowPlay(); }
+});
+
 // Tidy up if the page closes while connected.
 window.addEventListener("beforeunload", () => { if (port) disconnect(); });
 
 // Start disabled until connected.
 setConnected(false);
+updateFlowStepButtons();
 log("Ready. Connect your Arduino Uno R3 running 09_nonblocking_cloud.ino.");
